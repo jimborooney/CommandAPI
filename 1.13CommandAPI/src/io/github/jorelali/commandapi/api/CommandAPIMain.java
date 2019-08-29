@@ -12,12 +12,16 @@ import org.bukkit.Axis;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.World.Environment;
+import org.bukkit.command.Command;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.help.GenericCommandHelpTopic;
+import org.bukkit.help.HelpTopic;
+import org.bukkit.help.HelpTopicFactory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -107,6 +111,14 @@ public class CommandAPIMain extends JavaPlugin implements Listener {
 		
 		//Instantiate CommandAPI
 		CommandAPI.getInstance();
+		
+		Bukkit.getHelpMap().registerHelpTopicFactory(CommandAPIHandler.CmdAPICommand.class, new HelpTopicFactory<Command>() {
+
+			@Override
+			public HelpTopic createTopic(Command command) {
+				return new GenericCommandHelpTopic(command);
+			}
+		});
 	}
 	
 	@Override

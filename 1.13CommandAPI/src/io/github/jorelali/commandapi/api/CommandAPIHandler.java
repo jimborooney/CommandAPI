@@ -19,13 +19,21 @@ import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang.Validate;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.PluginIdentifiableCommand;
 import org.bukkit.command.SimpleCommandMap;
+import org.bukkit.command.defaults.BukkitCommand;
+import org.bukkit.craftbukkit.v1_14_R1.command.VanillaCommandWrapper;
 import org.bukkit.permissions.Permission;
+import org.bukkit.plugin.Plugin;
 
+import com.google.common.base.Joiner;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.ParseResults;
 import com.mojang.brigadier.arguments.ArgumentType;
 import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -59,6 +67,7 @@ import io.github.jorelali.commandapi.api.nms.NMS_1_13_R2;
 import io.github.jorelali.commandapi.api.nms.NMS_1_14_R1;
 import io.github.jorelali.commandapi.safereflection.ReflectionType;
 import io.github.jorelali.commandapi.safereflection.SafeReflection;
+import net.minecraft.server.v1_14_R1.CommandListenerWrapper;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 /**
@@ -458,6 +467,95 @@ public final class CommandAPIHandler {
 		}
 	}
 	
+	static class CmdAPICommand extends BukkitCommand implements PluginIdentifiableCommand {
+		
+		net.minecraft.server.v1_14_R1.CommandDispatcher NMSDispatcher;
+		
+		public CmdAPICommand(net.minecraft.server.v1_14_R1.CommandDispatcher dispatcher, CommandNode<CommandListenerWrapper> vanillaCommand) {
+			super(vanillaCommand.getName(), "description", "usageText", new ArrayList<>());
+			this.NMSDispatcher = dispatcher;
+			this.setPermission(VanillaCommandWrapper.getPermission(vanillaCommand));
+		}
+
+		@Override
+		public Plugin getPlugin() {
+			return Bukkit.getPluginManager().getPlugin("CommandAPI");
+		}
+
+		@Override
+		public boolean execute(CommandSender sender, String commandLabel, String[] args) {
+			
+			if (!this.testPermission(sender)) {
+				return true;
+			} else {
+				System.out.println(">> hi! <<");
+				CommandListenerWrapper icommandlistener = VanillaCommandWrapper.getListener(sender);
+				this.NMSDispatcher.a(icommandlistener, this.toDispatcher(args, this.getName()),
+						this.toDispatcher(args, commandLabel));
+				return true;
+			}
+		}
+		
+		public List<String> tabComplete(CommandSender sender, String alias, String[] args, Location location)
+				throws IllegalArgumentException {
+			Validate.notNull(sender, "Sender cannot be null");
+			Validate.notNull(args, "Arguments cannot be null");
+			Validate.notNull(alias, "Alias cannot be null");
+			CommandListenerWrapper icommandlistener = VanillaCommandWrapper.getListener(sender);
+			ParseResults parsed = this.NMSDispatcher.a().parse(this.toDispatcher(args, this.getName()), icommandlistener);
+			ArrayList results = new ArrayList();
+			this.NMSDispatcher.a().getCompletionSuggestions(parsed).thenAccept((suggestions) -> {
+				((Suggestions) suggestions).getList().forEach((s) -> {
+					results.add(s.getText());
+				});
+			});
+			return results;
+		}
+		
+		private String toDispatcher(String[] args, String name) {
+			return "/" + name + (args.length > 0 ? " " + Joiner.on(' ').join(args) : "");
+		}
+	}
+	
+	private void analyse(Map<String, org.bukkit.command.Command> knownCommands) {
+		System.out.println("Performing known command analysis:");
+		
+		Map<String, org.bukkit.command.Command> cloned = new HashMap<>(knownCommands);
+		
+		String rotName = "";
+		
+		for(String name : cloned.keySet()) {
+			org.bukkit.command.Command c = cloned.get(name);
+			System.out.println(c.getName() + "$" + c.getClass().getName());
+			
+			if(c instanceof PluginIdentifiableCommand) {
+				PluginIdentifiableCommand p = (PluginIdentifiableCommand) c;
+				System.out.println("Linked to: " + p.getPlugin().getName());
+			}
+			
+			if(c.getName().equals("rot")) {
+				rotName = name;
+				
+				
+				VanillaCommandWrapper wrapper = (VanillaCommandWrapper) c;
+				try {
+					net.minecraft.server.v1_14_R1.CommandDispatcher d = (net.minecraft.server.v1_14_R1.CommandDispatcher) getField(VanillaCommandWrapper.class, "dispatcher").get(wrapper);
+					System.out.println("Replacing ROT with alternative...");
+					knownCommands.replace(name, new CmdAPICommand(d, wrapper.vanillaCommand));
+					
+					
+				} catch (IllegalArgumentException | IllegalAccessException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+		
+		System.out.println("Finished analysis: ");
+		System.out.println(rotName + ": " + knownCommands.get(rotName).getClass().getName());
+//		Bukkit.getHelpMap().
+//		Bukkit.help
+	}
+	
 	protected void fixPermissions() {
 		/* Makes permission checks more "Bukkit" like and less "Vanilla Minecraft" like */
 		try {
@@ -466,6 +564,10 @@ public final class CommandAPIHandler {
 			SimpleCommandMap map = nms.getSimpleCommandMap();
 			Field f = getField(SimpleCommandMap.class, "knownCommands");
 			Map<String, org.bukkit.command.Command> knownCommands = (Map<String, org.bukkit.command.Command>) f.get(map);
+			
+			//TODO: REMOVE BEFORE RELEASE 3.0
+			analyse(knownCommands);
+			//TODO: REMOVE BEFORE RELEASE 3.0
 			
 			CommandAPIMain.getLog().info("Linking permissions to commands:");
 			permissionsToFix.forEach((cmdName, perm) -> {
