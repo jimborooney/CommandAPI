@@ -2,16 +2,6 @@ package io.github.jorelali.commandapi.api.wrappers;
 
 public final class ItemSlot {
 
-	enum ContainerType {
-		ARMOR_FEET, ARMOR_LEGS, ARMOR_CHEST, ARMOR_HEAD,
-		HORSE_SADDLE, HORSE_ARMOR, HORSE_CHEST,
-		WEAPON_MAINHAND,WEAPON_OFFHAND,
-		CONTAINER, //Includes Hotbar & Inventory
-		ENDERCHEST,
-		HORSE,
-		VILLAGER
-	}
-	
 	private final int index;
 	private final ContainerType containerType;
 	
@@ -25,7 +15,9 @@ public final class ItemSlot {
 			index = id;
 		}
 		else if (id >= 200 && id <= 226) {
-			//TODO: Test this.
+			//TODO: Test this. If we open an enderchest and dump something
+			//in slot #0, are we SURE it doesn't just dump it in the left
+			//most bottom corner (first hotbar item)?
 			containerType = ContainerType.ENDERCHEST;
 			index = id - 200;
 		}
@@ -50,7 +42,7 @@ public final class ItemSlot {
 				
 				case 400: containerType = ContainerType.HORSE_SADDLE;    break;
 				case 401: containerType = ContainerType.HORSE_ARMOR;     break;
-				case 499: containerType = ContainerType.HORSE_CHEST;     break;
+				case 499: containerType = ContainerType.HORSE_CHEST;     break; //Also, what even is this? 
 				default:  containerType = null;
 			}
 		}
