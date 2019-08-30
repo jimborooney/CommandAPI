@@ -116,6 +116,7 @@ public class CommandAPIMain extends JavaPlugin implements Listener {
 
 			@Override
 			public HelpTopic createTopic(Command command) {
+				command.setDescription("blah de blah!");
 				return new GenericCommandHelpTopic(command);
 			}
 		});
@@ -183,7 +184,7 @@ public class CommandAPIMain extends JavaPlugin implements Listener {
         });
         
         args1.clear();
-        args1.put("rot", new RotationArgument());
+        args1.put("rotation", new RotationArgument());
         
         CommandAPI.getInstance().register("rot", args1, (s, a) -> {
         	Rotation r = (Rotation) a[0];
